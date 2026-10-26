@@ -67,7 +67,158 @@ function getOrCreateRoom(roomId: string, initialName?: string): Room {
       activeView: 'stage',
       spotlightParticipantId: null,
       participants: new Map(),
-      whiteboardData: [],
+      whiteboardData: [
+        {
+          id: 'wb-init-1',
+          tool: 'text',
+          color: '#0EA5E9',
+          strokeWidth: 2,
+          points: [{ x: 60, y: 50 }],
+          startX: 60,
+          startY: 50,
+          text: "Young's Double-Slit Optical Experiment (λ = 632.8 nm)",
+          userId: 'teacher-elena',
+          timestamp: Date.now() - 3600000
+        },
+        {
+          id: 'wb-init-2',
+          tool: 'rectangle',
+          color: '#2563EB',
+          strokeWidth: 2,
+          points: [{ x: 60, y: 160 }, { x: 150, y: 240 }],
+          startX: 60,
+          startY: 160,
+          endX: 150,
+          endY: 240,
+          userId: 'teacher-elena',
+          timestamp: Date.now() - 3500000
+        },
+        {
+          id: 'wb-init-3',
+          tool: 'text',
+          color: '#FFFFFF',
+          strokeWidth: 2,
+          points: [{ x: 75, y: 205 }],
+          startX: 75,
+          startY: 205,
+          text: 'Laser (He-Ne)',
+          userId: 'teacher-elena',
+          timestamp: Date.now() - 3400000
+        },
+        {
+          id: 'wb-init-4',
+          tool: 'arrow',
+          color: '#DC2626',
+          strokeWidth: 3,
+          points: [{ x: 150, y: 200 }, { x: 260, y: 200 }],
+          startX: 150,
+          startY: 200,
+          endX: 260,
+          endY: 200,
+          userId: 'teacher-elena',
+          timestamp: Date.now() - 3300000
+        },
+        {
+          id: 'wb-init-5',
+          tool: 'rectangle',
+          color: '#FFFFFF',
+          strokeWidth: 3,
+          points: [{ x: 260, y: 110 }, { x: 266, y: 310 }],
+          startX: 260,
+          startY: 110,
+          endX: 266,
+          endY: 310,
+          userId: 'teacher-elena',
+          timestamp: Date.now() - 3200000
+        },
+        {
+          id: 'wb-init-6',
+          tool: 'text',
+          color: '#D97706',
+          strokeWidth: 2,
+          points: [{ x: 275, y: 165 }],
+          startX: 275,
+          startY: 165,
+          text: 'Slit S1',
+          userId: 'teacher-elena',
+          timestamp: Date.now() - 3100000
+        },
+        {
+          id: 'wb-init-7',
+          tool: 'text',
+          color: '#D97706',
+          strokeWidth: 2,
+          points: [{ x: 275, y: 255 }],
+          startX: 275,
+          startY: 255,
+          text: 'Slit S2',
+          userId: 'teacher-elena',
+          timestamp: Date.now() - 3000000
+        },
+        {
+          id: 'wb-init-8',
+          tool: 'arrow',
+          color: '#DC2626',
+          strokeWidth: 2,
+          points: [{ x: 266, y: 160 }, { x: 580, y: 140 }],
+          startX: 266,
+          startY: 160,
+          endX: 580,
+          endY: 140,
+          userId: 'teacher-elena',
+          timestamp: Date.now() - 2900000
+        },
+        {
+          id: 'wb-init-9',
+          tool: 'arrow',
+          color: '#16A34A',
+          strokeWidth: 2,
+          points: [{ x: 266, y: 250 }, { x: 580, y: 140 }],
+          startX: 266,
+          startY: 250,
+          endX: 580,
+          endY: 140,
+          userId: 'teacher-elena',
+          timestamp: Date.now() - 2800000
+        },
+        {
+          id: 'wb-init-10',
+          tool: 'rectangle',
+          color: '#FFFFFF',
+          strokeWidth: 3,
+          points: [{ x: 580, y: 90 }, { x: 586, y: 330 }],
+          startX: 580,
+          startY: 90,
+          endX: 586,
+          endY: 330,
+          userId: 'teacher-elena',
+          timestamp: Date.now() - 2700000
+        },
+        {
+          id: 'wb-init-11',
+          tool: 'text',
+          color: '#2563EB',
+          strokeWidth: 2,
+          points: [{ x: 280, y: 350 }],
+          startX: 280,
+          startY: 350,
+          text: 'ΔL = d · sin(θ) = m · λ  (Constructive Interference)',
+          userId: 'teacher-elena',
+          timestamp: Date.now() - 2600000
+        },
+        {
+          id: 'wb-init-12',
+          tool: 'text',
+          color: '#16A34A',
+          strokeWidth: 2,
+          points: [{ x: 280, y: 385 }],
+          startX: 280,
+          startY: 385,
+          text: 'Fringe Width: β = λ · D / d',
+          userId: 'teacher-elena',
+          timestamp: Date.now() - 2500000
+        }
+      ],
       documentContent: `# Lecture 14: Young's Double-Slit Experiment & Coherence
 
 ## 1. Physical Principle
@@ -149,6 +300,157 @@ app.get('/api/room/:roomId', (req, res) => {
     participantsCount: room.participants.size,
     participants: participantList
   });
+});
+
+// GitHub OAuth authorization URL endpoint
+app.get('/api/auth/github/url', (req, res) => {
+  const appUrl = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
+  const redirectUri = `${appUrl.replace(/\/$/, '')}/auth/github/callback`;
+  const clientId = process.env.GITHUB_CLIENT_ID;
+
+  if (!clientId || clientId === 'MY_GITHUB_CLIENT_ID') {
+    return res.json({
+      isConfigured: false,
+      callbackUrl: redirectUri,
+      url: null,
+      message: 'GITHUB_CLIENT_ID not configured in environment variables.'
+    });
+  }
+
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    scope: 'read:user user:email',
+    allow_signup: 'true'
+  });
+
+  res.json({
+    isConfigured: true,
+    callbackUrl: redirectUri,
+    url: `https://github.com/login/oauth/authorize?${params.toString()}`
+  });
+});
+
+// GitHub OAuth callback endpoint (handling both trailing slash variations)
+app.get(['/auth/github/callback', '/auth/github/callback/'], async (req, res) => {
+  const { code } = req.query;
+  const clientId = process.env.GITHUB_CLIENT_ID;
+  const clientSecret = process.env.GITHUB_CLIENT_SECRET;
+
+  if (!code || typeof code !== 'string') {
+    return res.status(400).send('Authorization code missing.');
+  }
+
+  try {
+    // Exchange code for token
+    const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json'
+      },
+      body: JSON.stringify({
+        client_id: clientId,
+        client_secret: clientSecret,
+        code
+      })
+    });
+
+    const tokenData = await tokenRes.json();
+    const accessToken = tokenData.access_token;
+
+    if (!accessToken) {
+      throw new Error(tokenData.error_description || 'Failed to exchange authorization code.');
+    }
+
+    // Fetch user profile from GitHub
+    const userRes = await fetch('https://api.github.com/user', {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'User-Agent': 'CipherClass-Virtual-Classroom'
+      }
+    });
+
+    const userData = await userRes.json();
+
+    // Return HTML that posts message to opener and closes popup
+    res.send(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Authentication Successful</title>
+          <style>
+            body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; text-align: center; }
+            .card { background: #1e293b; padding: 2rem; border-radius: 1rem; border: 1px solid #334155; }
+          </style>
+        </head>
+        <body>
+          <div class="card">
+            <h2>GitHub Authentication Successful</h2>
+            <p>Connecting ${userData.name || userData.login} to CipherClass...</p>
+            <script>
+              const payload = {
+                type: 'OAUTH_AUTH_SUCCESS',
+                provider: 'github',
+                user: {
+                  id: "${userData.id}",
+                  login: "${userData.login}",
+                  name: "${(userData.name || userData.login).replace(/"/g, '\\"')}",
+                  avatar_url: "${userData.avatar_url}"
+                }
+              };
+              if (window.opener) {
+                window.opener.postMessage(payload, '*');
+                window.close();
+              } else {
+                window.location.href = '/';
+              }
+            </script>
+          </div>
+        </body>
+      </html>
+    `);
+  } catch (err: any) {
+    res.status(500).send(`
+      <!DOCTYPE html>
+      <html>
+        <body style="font-family: system-ui; background: #0f172a; color: #f87171; padding: 2rem; text-align: center;">
+          <h3>Authentication Error</h3>
+          <p>${err.message || 'Unknown error occurred during GitHub login.'}</p>
+          <button onclick="window.close()" style="background: #334155; color: white; border: none; padding: 0.5rem 1rem; border-radius: 0.5rem; cursor: pointer;">Close Window</button>
+        </body>
+      </html>
+    `);
+  }
+});
+
+// Proxy to fetch raw GitHub file / markdown for classroom notes & collaboration
+app.get('/api/github/fetch-file', async (req, res) => {
+  const { url } = req.query;
+  if (!url || typeof url !== 'string') {
+    return res.status(400).json({ error: 'URL query parameter required.' });
+  }
+
+  try {
+    let targetUrl = url;
+    // Convert github.com blob URLs to raw.githubusercontent.com
+    if (targetUrl.includes('github.com') && targetUrl.includes('/blob/')) {
+      targetUrl = targetUrl.replace('github.com', 'raw.githubusercontent.com').replace('/blob/', '/');
+    }
+
+    const response = await fetch(targetUrl, {
+      headers: { 'User-Agent': 'CipherClass-Virtual-Classroom' }
+    });
+
+    if (!response.ok) {
+      return res.status(response.status).json({ error: 'Failed to fetch GitHub file.' });
+    }
+
+    const text = await response.text();
+    res.json({ content: text, url: targetUrl });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to fetch GitHub file.' });
+  }
 });
 
 const server = http.createServer(app);

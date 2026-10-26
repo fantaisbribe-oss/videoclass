@@ -13,6 +13,9 @@ import {
   Code,
   Users,
   ShieldCheck,
+  Github,
+  X,
+  Sparkles,
 } from 'lucide-react';
 import { UserRole } from '../types';
 
@@ -33,6 +36,52 @@ export const DocumentCollab: React.FC<DocumentCollabProps> = ({
 }) => {
   const [viewMode, setViewMode] = useState<'split' | 'editor' | 'preview'>('split');
   const [copied, setCopied] = useState<boolean>(false);
+  const [githubModalOpen, setGithubModalOpen] = useState(false);
+  const [githubUrl, setGithubUrl] = useState('');
+  const [importLoading, setImportLoading] = useState(false);
+
+  const handleImportFromGithub = async (urlToFetch?: string) => {
+    const target = urlToFetch || githubUrl;
+    if (!target.trim()) return;
+    setImportLoading(true);
+    try {
+      const res = await fetch(`/api/github/fetch-file?url=${encodeURIComponent(target.trim())}`);
+      const data = await res.json();
+      if (data.content) {
+        onContentChange(content + `\n\n## Imported from GitHub\n\`\`\`python\n${data.content}\n\`\`\`\n`);
+        setGithubModalOpen(false);
+        setGithubUrl('');
+      } else {
+        alert('Could not fetch file: ' + (data.error || 'Check repository access'));
+      }
+    } catch (err) {
+      alert('Failed to import file from GitHub.');
+    } finally {
+      setImportLoading(false);
+    }
+  };
+
+  const insertSampleOpticsScript = () => {
+    const sampleCode = `\n\n## Python Simulation: Young's Double-Slit Optical Interference\n\`\`\`python
+import numpy as np
+
+def interference_fringes(wavelength=632.8e-9, d=0.25e-3, D=1.2, num_points=1000):
+    """
+    Computes normalized intensity distribution for double-slit experiment.
+    Parameters:
+      wavelength: 632.8 nm (He-Ne laser)
+      d: Slit separation (0.25 mm)
+      D: Distance to screen (1.2 m)
+    """
+    y = np.linspace(-0.015, 0.015, num_points)
+    theta = np.arctan(y / D)
+    delta_phase = (2 * np.pi / wavelength) * d * np.sin(theta)
+    intensity = np.cos(delta_phase / 2.0) ** 2
+    return y, intensity
+\`\`\`\n`;
+    onContentChange(content + sampleCode);
+    setGithubModalOpen(false);
+  };
 
   const insertMarkdown = (prefix: string, suffix: string = '') => {
     const textarea = document.getElementById('lesson-doc-editor') as HTMLTextAreaElement;
@@ -228,7 +277,15 @@ export const DocumentCollab: React.FC<DocumentCollabProps> = ({
             title="Insert Physics Diagram"
           >
             <ImageIcon className="w-3.5 h-3.5" />
-            <span>Insert Diagram</span>
+            <span>Diagram</span>
+          </button>
+          <button
+            onClick={() => setGithubModalOpen(true)}
+            className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-slate-300 hover:text-white hover:bg-slate-800 border border-slate-700/60"
+            title="Import Code or Notes from GitHub"
+          >
+            <Github className="w-3.5 h-3.5" />
+            <span>GitHub</span>
           </button>
         </div>
 
@@ -304,6 +361,86 @@ export const DocumentCollab: React.FC<DocumentCollabProps> = ({
           </div>
         )}
       </div>
+
+      {/* GitHub Repository File Import Modal */}
+      {githubModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-150 select-none">
+          <div className="relative w-full max-w-lg rounded-2xl bg-slate-900 border border-slate-800 shadow-2xl overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-900/90">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-white">
+                  <Github className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white">Import from GitHub</h3>
+                  <p className="text-xs text-slate-400">Load code, algorithms, or README into notes</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setGithubModalOpen(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="text-xs font-semibold text-slate-200 block mb-1.5">
+                  GitHub File or Raw URL
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={githubUrl}
+                    onChange={(e) => setGithubUrl(e.target.value)}
+                    placeholder="e.g. https://github.com/owner/repo/blob/main/optics.py"
+                    className="flex-1 px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white placeholder-slate-500 outline-none focus:border-blue-500"
+                  />
+                  <button
+                    onClick={() => handleImportFromGithub()}
+                    disabled={importLoading || !githubUrl.trim()}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl text-xs font-medium transition-colors"
+                  >
+                    {importLoading ? 'Fetching...' : 'Import'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Quick Preset Lesson Snippets */}
+              <div className="pt-2 border-t border-slate-800/80">
+                <span className="text-xs font-semibold text-slate-400 block mb-2">
+                  Instant STEM Lesson Presets
+                </span>
+                <button
+                  type="button"
+                  onClick={insertSampleOpticsScript}
+                  className="w-full text-left p-3 rounded-xl bg-slate-950 hover:bg-slate-800/70 border border-slate-800 transition-colors flex items-center justify-between group"
+                >
+                  <div>
+                    <span className="text-xs font-semibold text-white group-hover:text-blue-300 block">
+                      Python: Double-Slit Optical Simulation Code
+                    </span>
+                    <span className="text-[11px] text-slate-400">
+                      Calculates wave diffraction angles, phase deltas, and normalized fringe intensity
+                    </span>
+                  </div>
+                  <Sparkles className="w-4 h-4 text-cyan-400 shrink-0 ml-2" />
+                </button>
+              </div>
+            </div>
+
+            <div className="px-6 py-3 border-t border-slate-800 bg-slate-900 flex justify-end">
+              <button
+                onClick={() => setGithubModalOpen(false)}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-medium"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -15,6 +15,7 @@ import { SecurityModal } from './components/SecurityModal';
 import { TeacherHostModal } from './components/TeacherHostModal';
 import { PollModal } from './components/PollModal';
 import { JoinLobby } from './components/JoinLobby';
+import { GitHubModal } from './components/GitHubModal';
 import {
   Participant,
   ChatMessage,
@@ -42,6 +43,7 @@ export default function App() {
   const [securityModalOpen, setSecurityModalOpen] = useState<boolean>(false);
   const [hostToolsOpen, setHostToolsOpen] = useState<boolean>(false);
   const [pollModalOpen, setPollModalOpen] = useState<boolean>(false);
+  const [githubModalOpen, setGithubModalOpen] = useState<boolean>(false);
 
   const searchParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
   const urlRoom = searchParams.get('room');
@@ -74,13 +76,68 @@ export default function App() {
   const [allowStudentScreenshare, setAllowStudentScreenshare] = useState<boolean>(true);
   const [allowStudentWhiteboard, setAllowStudentWhiteboard] = useState<boolean>(true);
   const [participants, setParticipants] = useState<Participant[]>([]);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    {
+      id: 'msg-init-1',
+      senderId: 'inst-elena',
+      senderName: 'Dr. Elena Vance',
+      senderRole: 'teacher',
+      text: "Good morning class! Welcome to Lecture 14 on Wave Optics. All audio, video, and notes in this room are E2E encrypted.",
+      timestamp: Date.now() - 900000,
+      isEncrypted: true,
+      wireSample: {
+        iv: 'v4fL72m8K0xQ',
+        ciphertext: '8d2a1b9f4e6c3820a1bc7e829fa0c2...',
+      },
+    },
+    {
+      id: 'msg-init-2',
+      senderId: 'stu-sarah',
+      senderName: 'Sarah Chen',
+      senderRole: 'student',
+      text: 'Good morning Dr. Vance! Does increasing the slit separation d make the bright fringes closer together on the screen?',
+      timestamp: Date.now() - 600000,
+      isEncrypted: true,
+      wireSample: {
+        iv: 'k90xLa47MzQ1',
+        ciphertext: '5a10ef4b9821d374a2cc9b148fa710...',
+      },
+    },
+    {
+      id: 'msg-init-3',
+      senderId: 'inst-elena',
+      senderName: 'Dr. Elena Vance',
+      senderRole: 'teacher',
+      text: 'Precisely, Sarah! Because fringe spacing is β = λD / d, as d increases, the spacing β is inversely proportional and gets narrower.',
+      timestamp: Date.now() - 300000,
+      isEncrypted: true,
+      wireSample: {
+        iv: 'm82Lk18P0zWq',
+        ciphertext: '3f92bb40a827cf119a08eb197cda04...',
+      },
+    },
+    {
+      id: 'msg-init-4',
+      senderId: 'stu-david',
+      senderName: 'David Kim',
+      senderRole: 'student',
+      text: 'I just imported the Python simulation script from GitHub into our shared lesson notes!',
+      timestamp: Date.now() - 120000,
+      isEncrypted: true,
+      wireSample: {
+        iv: 'w982La72XoP4',
+        ciphertext: '12cf88019a2e4b77dcba19028a4cb9...',
+      },
+    },
+  ]);
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [whiteboardElements, setWhiteboardElements] = useState<WhiteboardElement[]>([]);
   const [documentContent, setDocumentContent] = useState<string>('');
   const [activePoll, setActivePoll] = useState<Poll | null>(null);
   const [attendanceLog, setAttendanceLog] = useState<AttendanceRecord[]>([]);
   const [reactions, setReactions] = useState<ReactionBurst[]>([]);
+
+  const [userAvatar, setUserAvatar] = useState<string | undefined>(undefined);
 
   // WebSocket reference
   const wsRef = useRef<WebSocket | null>(null);
@@ -94,6 +151,7 @@ export default function App() {
     passphrase?: string;
     isMuted: boolean;
     isCameraOff: boolean;
+    avatar?: string;
   }) => {
     setCurrentUserName(config.name);
     setCurrentUserRole(config.role);
@@ -101,6 +159,9 @@ export default function App() {
     setRoomName(config.roomName);
     setIsMuted(config.isMuted);
     setIsCameraOff(config.isCameraOff);
+    if (config.avatar) {
+      setUserAvatar(config.avatar);
+    }
 
     const generatedId = `user-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
     setCurrentUserId(generatedId);
@@ -162,9 +223,10 @@ export default function App() {
           name: config.name,
           role: config.role,
           avatar:
-            config.role === 'teacher'
+            config.avatar ||
+            (config.role === 'teacher'
               ? '/src/assets/images/avatar_teacher_elena_1793021711754.jpg'
-              : undefined,
+              : undefined),
           isMuted: config.isMuted,
           isCameraOff: config.isCameraOff,
           keyFingerprint: fp,
@@ -657,9 +719,10 @@ export default function App() {
     name: currentUserName,
     role: currentUserRole,
     avatar:
-      currentUserRole === 'teacher'
+      userAvatar ||
+      (currentUserRole === 'teacher'
         ? '/src/assets/images/avatar_teacher_elena_1793021711754.jpg'
-        : undefined,
+        : undefined),
     isMuted,
     isCameraOff,
     isScreenSharing,
@@ -698,6 +761,7 @@ export default function App() {
         onViewChange={handleViewChange}
         onOpenSecurity={() => setSecurityModalOpen(true)}
         onOpenHostTools={() => setHostToolsOpen(true)}
+        onOpenGitHub={() => setGithubModalOpen(true)}
         participantCount={participants.length + 1}
         isLocked={isLocked}
       />
@@ -825,6 +889,13 @@ export default function App() {
         currentUserRole={currentUserRole}
         onVote={handleVotePoll}
         onClosePoll={handleClosePoll}
+      />
+
+      {/* GitHub Repository & Live Link Modal */}
+      <GitHubModal
+        isOpen={githubModalOpen}
+        onClose={() => setGithubModalOpen(false)}
+        sharedAppUrl="https://ais-pre-pjt3i2ehwk6vpxnoxzbbnc-127082696976.europe-west1.run.app"
       />
     </div>
   );

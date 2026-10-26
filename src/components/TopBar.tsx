@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShieldCheck, Lock, Users, Radio } from 'lucide-react';
+import { ShieldCheck, Lock, Users, Radio, Github } from 'lucide-react';
 import { MainViewMode, UserRole } from '../types';
 
 interface TopBarProps {
@@ -11,6 +11,7 @@ interface TopBarProps {
   onViewChange: (view: MainViewMode) => void;
   onOpenSecurity: () => void;
   onOpenHostTools?: () => void;
+  onOpenGitHub?: () => void;
   participantCount: number;
   isLocked: boolean;
 }
@@ -24,6 +25,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   onViewChange,
   onOpenSecurity,
   onOpenHostTools,
+  onOpenGitHub,
   participantCount,
   isLocked,
 }) => {
@@ -103,6 +105,17 @@ export const TopBar: React.FC<TopBarProps> = ({
             </span>
           )}
         </div>
+
+        {onOpenGitHub && (
+          <button
+            onClick={onOpenGitHub}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-300 bg-slate-800/80 hover:bg-slate-750 hover:text-white border border-slate-700/60 rounded-lg transition-colors whitespace-nowrap"
+            title="GitHub Repository & Live Site Links"
+          >
+            <Github className="w-3.5 h-3.5" />
+            <span>GitHub</span>
+          </button>
+        )}
 
         <button
           onClick={onOpenSecurity}
