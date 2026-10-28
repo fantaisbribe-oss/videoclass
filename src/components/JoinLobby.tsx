@@ -20,6 +20,7 @@ import {
   Code,
 } from 'lucide-react';
 import { UserRole } from '../types';
+import { auth, googleProvider, signInWithPopup, User as FirebaseUser } from '../lib/firebase';
 
 interface GitHubUser {
   id: string;
@@ -65,6 +66,19 @@ export const JoinLobby: React.FC<JoinLobbyProps> = ({
   const [githubModalOpen, setGithubModalOpen] = useState(false);
   const [githubConfig, setGithubConfig] = useState<{ isConfigured: boolean; callbackUrl: string } | null>(null);
   const [copiedCallback, setCopiedCallback] = useState(false);
+  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
+
+  const handleGoogleSignIn = async () => {
+    try {
+      const res = await signInWithPopup(auth, googleProvider);
+      if (res.user) {
+        setFirebaseUser(res.user);
+        setName(res.user.displayName || 'Authenticated User');
+      }
+    } catch (err) {
+      console.warn('Google sign-in popup error:', err);
+    }
+  };
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
@@ -222,7 +236,7 @@ export const JoinLobby: React.FC<JoinLobbyProps> = ({
       passphrase: passphrase.trim(),
       isMuted,
       isCameraOff,
-      avatar: githubUser?.avatar_url,
+      avatar: firebaseUser?.photoURL || githubUser?.avatar_url,
     });
   };
 

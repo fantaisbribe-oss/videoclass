@@ -1,0 +1,122 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // User Profiles
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create: if isOwner(userId)
+        && isValidId(userId)
+        && incoming().uid == request.auth.uid
+        && incoming().displayName is string && incoming().displayName.size() <= 100
+        && incoming().role in ['teacher', 'student'];
+      allow update: if isOwner(userId)
+        && incoming().uid == existing().uid
+        && (!incoming().diff(existing()).affectedKeys().hasAny(['role']));
+      allow delete: if false;
+    }
+
+    // Classroom Rooms
+    match /rooms/{roomId} {
+      allow read: if isSignedIn() && isValidId(roomId);
+      allow create: if isSignedIn() && isValidId(roomId)
+        && incoming().id == roomId
+        && incoming().teacherId == request.auth.uid
+        && incoming().name is string && incoming().name.size() <= 200
+        && incoming().isLocked is bool;
+      allow update: if isSignedIn() && isValidId(roomId)
+        && (existing().teacherId == request.auth.uid || incoming().teacherId == existing().teacherId);
+      allow delete: if isSignedIn() && isValidId(roomId) && existing().teacherId == request.auth.uid;
+
+      // Active Participants Presence
+      match /participants/{participantId} {
+        allow read: if isSignedIn() && isValidId(roomId);
+        allow create, update: if isSignedIn() && isValidId(roomId)
+          && (isOwner(participantId) || resource.data.id == request.auth.uid || get(/databases/$(database)/documents/rooms/$(roomId)).data.teacherId == request.auth.uid);
+        allow delete: if isSignedIn() && (isOwner(participantId) || get(/databases/$(database)/documents/rooms/$(roomId)).data.teacherId == request.auth.uid);
+      }
+
+      // End-to-End Encrypted Chat Messages
+      match /messages/{messageId} {
+        allow read: if isSignedIn() && isValidId(roomId);
+        allow create: if isSignedIn() && isValidId(roomId) && isValidId(messageId)
+          && incoming().senderId == request.auth.uid
+          && incoming().iv is string && incoming().iv.size() <= 64
+          && incoming().ciphertext is string && incoming().ciphertext.size() <= 20000;
+        allow update, delete: if false;
+      }
+
+      // Classroom Polls & Quizzes
+      match /polls/{pollId} {
+        allow read: if isSignedIn() && isValidId(roomId);
+        allow create, update: if isSignedIn() && isValidId(roomId)
+          && get(/databases/$(database)/documents/rooms/$(roomId)).data.teacherId == request.auth.uid;
+        allow delete: if isSignedIn() && get(/databases/$(database)/documents/rooms/$(roomId)).data.teacherId == request.auth.uid;
+
+        match /votes/{voteId} {
+          allow read: if isSignedIn() && isValidId(roomId);
+          allow create, update: if isSignedIn() && isValidId(roomId)
+            && incoming().participantId == request.auth.uid;
+          allow delete: if false;
+        }
+      }
+
+      // WebRTC Signaling Exchange
+      match /signaling/{signalId} {
+        allow read: if isSignedIn() && isValidId(roomId);
+        allow create: if isSignedIn() && isValidId(roomId) && isValidId(signalId)
+          && incoming().senderId == request.auth.uid;
+        allow delete: if isSignedIn() && isValidId(roomId)
+          && (existing().senderId == request.auth.uid || existing().targetId == request.auth.uid);
+      }
+
+      // Collaborative Whiteboard
+      match /whiteboard/{whiteboardId} {
+        allow read: if isSignedIn() && isValidId(roomId);
+        allow create, update: if isSignedIn() && isValidId(roomId);
+        allow delete: if isSignedIn() && get(/databases/$(database)/documents/rooms/$(roomId)).data.teacherId == request.auth.uid;
+      }
+
+      // Collaborative Document Notes
+      match /document/{docId} {
+        allow read: if isSignedIn() && isValidId(roomId);
+        allow create, update: if isSignedIn() && isValidId(roomId);
+        allow delete: if isSignedIn() && get(/databases/$(database)/documents/rooms/$(roomId)).data.teacherId == request.auth.uid;
+      }
+
+      // Attendance Records
+      match /attendance/{recordId} {
+        allow read: if isSignedIn() && isValidId(roomId);
+        allow create, update: if isSignedIn() && isValidId(roomId);
+        allow delete: if isSignedIn() && get(/databases/$(database)/documents/rooms/$(roomId)).data.teacherId == request.auth.uid;
+      }
+    }
+  }
+}

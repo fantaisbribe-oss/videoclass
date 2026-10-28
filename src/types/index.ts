@@ -65,6 +65,7 @@ export interface Poll {
   voters: Record<string, string>; // participantId -> optionId
   isClosed: boolean;
   createdBy: string;
+  createdAt?: number;
 }
 
 export interface AttendanceRecord {

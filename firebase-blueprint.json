@@ -1,0 +1,191 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile with role and authentication metadata",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128 },
+        "email": { "type": "string", "maxLength": 256 },
+        "displayName": { "type": "string", "maxLength": 100 },
+        "role": { "type": "string", "enum": ["teacher", "student"] },
+        "avatarUrl": { "type": "string", "maxLength": 1024 },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["uid", "email", "displayName", "role"]
+    },
+    "Room": {
+      "title": "Room",
+      "description": "Virtual classroom room configuration and state",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 200 },
+        "teacherId": { "type": "string", "maxLength": 128 },
+        "teacherName": { "type": "string", "maxLength": 100 },
+        "isLocked": { "type": "boolean" },
+        "allowStudentScreenshare": { "type": "boolean" },
+        "allowStudentWhiteboard": { "type": "boolean" },
+        "activeView": { "type": "string", "enum": ["stage", "whiteboard", "document", "screenshare"] },
+        "spotlightParticipantId": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "name", "teacherId", "teacherName", "isLocked"]
+    },
+    "Participant": {
+      "title": "Participant",
+      "description": "Classroom session participant status and presence",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 100 },
+        "role": { "type": "string", "enum": ["teacher", "student"] },
+        "avatar": { "type": "string", "maxLength": 1024 },
+        "handRaised": { "type": "boolean" },
+        "isMuted": { "type": "boolean" },
+        "isCameraOff": { "type": "boolean" },
+        "isScreenSharing": { "type": "boolean" },
+        "keyFingerprint": { "type": "string", "maxLength": 128 },
+        "joinedAt": { "type": "number" },
+        "lastSeen": { "type": "number" }
+      },
+      "required": ["id", "name", "role", "joinedAt"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "End-to-End encrypted chat payload",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "senderId": { "type": "string", "maxLength": 128 },
+        "senderName": { "type": "string", "maxLength": 100 },
+        "senderRole": { "type": "string", "enum": ["teacher", "student"] },
+        "iv": { "type": "string", "maxLength": 64 },
+        "ciphertext": { "type": "string", "maxLength": 10000 },
+        "timestamp": { "type": "number" }
+      },
+      "required": ["id", "senderId", "senderName", "senderRole", "iv", "ciphertext", "timestamp"]
+    },
+    "Poll": {
+      "title": "Poll",
+      "description": "Classroom multiple choice poll or quiz",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "question": { "type": "string", "maxLength": 500 },
+        "options": { "type": "string" },
+        "isClosed": { "type": "boolean" },
+        "createdBy": { "type": "string", "maxLength": 100 },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["id", "question", "options", "isClosed", "createdBy"]
+    },
+    "PollVote": {
+      "title": "PollVote",
+      "description": "Individual student vote for a poll",
+      "type": "object",
+      "properties": {
+        "participantId": { "type": "string", "maxLength": 128 },
+        "optionId": { "type": "string", "maxLength": 32 },
+        "timestamp": { "type": "number" }
+      },
+      "required": ["participantId", "optionId", "timestamp"]
+    },
+    "SignalingMessage": {
+      "title": "SignalingMessage",
+      "description": "WebRTC offer, answer or ICE candidate exchanged between peers",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "senderId": { "type": "string", "maxLength": 128 },
+        "targetId": { "type": "string", "maxLength": 128 },
+        "type": { "type": "string", "enum": ["offer", "answer", "candidate"] },
+        "data": { "type": "string", "maxLength": 20000 },
+        "timestamp": { "type": "number" }
+      },
+      "required": ["id", "senderId", "targetId", "type", "data", "timestamp"]
+    },
+    "WhiteboardState": {
+      "title": "WhiteboardState",
+      "description": "Synchronized collaborative whiteboard stroke and elements",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "data": { "type": "string", "maxLength": 50000 },
+        "updatedBy": { "type": "string", "maxLength": 128 },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["id", "data", "updatedBy", "updatedAt"]
+    },
+    "DocumentState": {
+      "title": "DocumentState",
+      "description": "Synchronized collaborative lesson markdown notes",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "content": { "type": "string", "maxLength": 50000 },
+        "updatedBy": { "type": "string", "maxLength": 128 },
+        "updatedByName": { "type": "string", "maxLength": 100 },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["id", "content", "updatedBy", "updatedAt"]
+    },
+    "AttendanceLog": {
+      "title": "AttendanceLog",
+      "description": "Classroom session attendance record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "participantId": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 100 },
+        "role": { "type": "string", "maxLength": 32 },
+        "joinedAt": { "type": "number" },
+        "leftAt": { "type": "number" }
+      },
+      "required": ["id", "participantId", "name", "role", "joinedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "UserProfile" },
+      "description": "User profile with role authorization"
+    },
+    "/rooms/{roomId}": {
+      "schema": { "$ref": "Room" },
+      "description": "Classroom metadata and settings"
+    },
+    "/rooms/{roomId}/participants/{participantId}": {
+      "schema": { "$ref": "Participant" },
+      "description": "Active classroom participants"
+    },
+    "/rooms/{roomId}/messages/{messageId}": {
+      "schema": { "$ref": "ChatMessage" },
+      "description": "End-to-End encrypted classroom chat messages"
+    },
+    "/rooms/{roomId}/polls/{pollId}": {
+      "schema": { "$ref": "Poll" },
+      "description": "Active classroom polls"
+    },
+    "/rooms/{roomId}/polls/{pollId}/votes/{voteId}": {
+      "schema": { "$ref": "PollVote" },
+      "description": "Student votes on polls"
+    },
+    "/rooms/{roomId}/signaling/{signalId}": {
+      "schema": { "$ref": "SignalingMessage" },
+      "description": "WebRTC signaling messages between peer browsers"
+    },
+    "/rooms/{roomId}/whiteboard/{whiteboardId}": {
+      "schema": { "$ref": "WhiteboardState" },
+      "description": "Interactive whiteboard canvas state"
+    },
+    "/rooms/{roomId}/document/{docId}": {
+      "schema": { "$ref": "DocumentState" },
+      "description": "Collaborative lesson notes document"
+    },
+    "/rooms/{roomId}/attendance/{recordId}": {
+      "schema": { "$ref": "AttendanceLog" },
+      "description": "Classroom attendance logs"
+    }
+  }
+}

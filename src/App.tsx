@@ -16,6 +16,7 @@ import { TeacherHostModal } from './components/TeacherHostModal';
 import { PollModal } from './components/PollModal';
 import { JoinLobby } from './components/JoinLobby';
 import { GitHubModal } from './components/GitHubModal';
+import { ClassroomService } from './lib/classroomService';
 import {
   Participant,
   ChatMessage,
@@ -139,8 +140,9 @@ export default function App() {
 
   const [userAvatar, setUserAvatar] = useState<string | undefined>(undefined);
 
-  // WebSocket reference
+  // WebSocket and Firebase references
   const wsRef = useRef<WebSocket | null>(null);
+  const classroomServiceRef = useRef<ClassroomService | null>(null);
 
   // Connect to WebSocket and initialize room
   const handleJoinClassroom = async (config: {
@@ -206,7 +208,82 @@ export default function App() {
       console.warn('Camera/mic access warning:', err);
     }
 
-    // 3. Connect to WebSocket Server
+    // 3. Initialize Firebase ClassroomService
+    const classroomService = new ClassroomService(config.roomId, generatedId);
+    classroomServiceRef.current = classroomService;
+    if (localStream) {
+      classroomService.setLocalStream(localStream);
+    }
+
+    const participantData: Participant = {
+      id: generatedId,
+      name: config.name,
+      role: config.role,
+      avatar:
+        config.avatar ||
+        (config.role === 'teacher'
+          ? '/src/assets/images/avatar_teacher_elena_1793021711754.jpg'
+          : undefined),
+      isMuted: config.isMuted,
+      isCameraOff: config.isCameraOff,
+      isScreenSharing: false,
+      handRaised: false,
+      joinedAt: Date.now(),
+      keyFingerprint: fp,
+    };
+
+    classroomService.joinRoom(participantData, config.roomName);
+    classroomService.subscribeToRoomState(
+      (roomData) => {
+        if (roomData.name) setRoomName(roomData.name);
+        if (roomData.isLocked !== undefined) setIsLocked(roomData.isLocked);
+        if (roomData.allowStudentScreenshare !== undefined)
+          setAllowStudentScreenshare(roomData.allowStudentScreenshare);
+        if (roomData.allowStudentWhiteboard !== undefined)
+          setAllowStudentWhiteboard(roomData.allowStudentWhiteboard);
+        if (roomData.activeView) setActiveView(roomData.activeView);
+        if (roomData.spotlightParticipantId !== undefined)
+          setSpotlightId(roomData.spotlightParticipantId);
+      },
+      (parts) => {
+        if (parts && parts.length > 0) {
+          setParticipants(parts);
+        }
+      }
+    );
+    classroomService.subscribeToWhiteboard((elements) => {
+      if (elements && elements.length > 0) setWhiteboardElements(elements);
+    });
+    classroomService.subscribeToDocument((content) => {
+      if (content) setDocumentContent(content);
+    });
+    classroomService.subscribeToMessages(async (rawMsg) => {
+      let decryptedText = rawMsg.text;
+      if (rawMsg.wireSample?.iv && rawMsg.wireSample?.ciphertext && key) {
+        try {
+          const decrypted = await decryptData(key, {
+            iv: rawMsg.wireSample.iv,
+            ciphertext: rawMsg.wireSample.ciphertext,
+            timestamp: rawMsg.timestamp,
+          });
+          decryptedText = decrypted.text;
+        } catch {
+          decryptedText = '[Encrypted Message: Decryption Failed]';
+        }
+      }
+      setMessages((prev) => {
+        if (prev.some((m) => m.id === rawMsg.id)) return prev;
+        return [...prev, { ...rawMsg, text: decryptedText }];
+      });
+    });
+    classroomService.subscribeToPolls((poll) => {
+      if (poll) setActivePoll(poll);
+    });
+    classroomService.initWebRTCSignaling((peerId, remoteMediaStream) => {
+      console.log('Received remote WebRTC media stream from peer:', peerId, remoteMediaStream);
+    });
+
+    // 4. Connect to WebSocket Server (Dual-Bridge Resilience)
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}`;
     const ws = new WebSocket(wsUrl);
@@ -427,6 +504,7 @@ export default function App() {
     if (localStream) {
       localStream.getAudioTracks().forEach((t) => (t.enabled = !nextState));
     }
+    classroomServiceRef.current?.updateStatus({ isMuted: nextState });
     wsRef.current?.send(
       JSON.stringify({
         type: 'update_status',
@@ -442,6 +520,7 @@ export default function App() {
     if (localStream) {
       localStream.getVideoTracks().forEach((t) => (t.enabled = !nextState));
     }
+    classroomServiceRef.current?.updateStatus({ isCameraOff: nextState });
     wsRef.current?.send(
       JSON.stringify({
         type: 'update_status',
@@ -460,6 +539,7 @@ export default function App() {
       }
       setIsScreenSharing(false);
       setActiveView('stage');
+      classroomServiceRef.current?.updateStatus({ isScreenSharing: false });
       wsRef.current?.send(
         JSON.stringify({
           type: 'update_status',
@@ -481,6 +561,7 @@ export default function App() {
             setIsScreenSharing(false);
             setScreenStream(null);
             setActiveView('stage');
+            classroomServiceRef.current?.updateStatus({ isScreenSharing: false });
           };
         } else {
           // Switch directly to presentation deck
@@ -488,6 +569,7 @@ export default function App() {
           setActiveView('screenshare');
         }
 
+        classroomServiceRef.current?.updateStatus({ isScreenSharing: true });
         wsRef.current?.send(
           JSON.stringify({
             type: 'update_status',
@@ -507,6 +589,7 @@ export default function App() {
   const handleToggleHand = () => {
     const nextHand = !handRaised;
     setHandRaised(nextHand);
+    classroomServiceRef.current?.updateStatus({ handRaised: nextHand });
     wsRef.current?.send(
       JSON.stringify({
         type: 'update_status',
@@ -531,7 +614,17 @@ export default function App() {
       encryptedPacket,
     };
 
-    // Send through WebSocket (server only sees encryptedPacket)
+    // Send through Firebase Firestore (zero plaintext leaks)
+    classroomServiceRef.current?.sendEncryptedMessage({
+      id: messagePayload.id,
+      senderId: currentUserId,
+      senderName: currentUserName,
+      senderRole: currentUserRole,
+      iv: encryptedPacket.iv,
+      ciphertext: encryptedPacket.ciphertext,
+    });
+
+    // Send through WebSocket (dual-bridge resilience)
     wsRef.current?.send(
       JSON.stringify({
         type: 'encrypted_chat_message',
@@ -554,6 +647,7 @@ export default function App() {
   // Whiteboard changes handler
   const handleWhiteboardChange = (elements: WhiteboardElement[]) => {
     setWhiteboardElements(elements);
+    classroomServiceRef.current?.syncWhiteboard(elements);
     wsRef.current?.send(
       JSON.stringify({
         type: 'whiteboard_sync',
@@ -565,6 +659,7 @@ export default function App() {
   // Document changes handler
   const handleDocumentChange = (newContent: string) => {
     setDocumentContent(newContent);
+    classroomServiceRef.current?.syncDocument(newContent, currentUserName);
     wsRef.current?.send(
       JSON.stringify({
         type: 'document_sync',
@@ -577,6 +672,7 @@ export default function App() {
   // View mode switcher
   const handleViewChange = (view: MainViewMode) => {
     setActiveView(view);
+    classroomServiceRef.current?.updateRoom({ activeView: view });
     wsRef.current?.send(
       JSON.stringify({
         type: 'switch_view',
@@ -597,6 +693,7 @@ export default function App() {
 
   const handleToggleLock = (locked: boolean) => {
     setIsLocked(locked);
+    classroomServiceRef.current?.updateRoom({ isLocked: locked });
     wsRef.current?.send(
       JSON.stringify({
         type: 'teacher_action',
@@ -608,6 +705,7 @@ export default function App() {
 
   const handleToggleStudentScreen = (allowed: boolean) => {
     setAllowStudentScreenshare(allowed);
+    classroomServiceRef.current?.updateRoom({ allowStudentScreenshare: allowed });
     wsRef.current?.send(
       JSON.stringify({
         type: 'teacher_action',
@@ -619,6 +717,7 @@ export default function App() {
 
   const handleToggleStudentWhiteboard = (allowed: boolean) => {
     setAllowStudentWhiteboard(allowed);
+    classroomServiceRef.current?.updateRoom({ allowStudentWhiteboard: allowed });
     wsRef.current?.send(
       JSON.stringify({
         type: 'teacher_action',
@@ -630,6 +729,7 @@ export default function App() {
 
   const handleSpotlight = (id: string | null) => {
     setSpotlightId(id);
+    classroomServiceRef.current?.updateRoom({ spotlightParticipantId: id });
     wsRef.current?.send(
       JSON.stringify({
         type: 'teacher_action',
@@ -650,6 +750,16 @@ export default function App() {
   };
 
   const handleCreatePoll = (question: string, options: string[]) => {
+    const newPoll: Poll = {
+      id: `poll-${Date.now()}`,
+      question,
+      options: options.map((opt, i) => ({ id: `opt-${i}`, text: opt, votes: 0 })),
+      voters: {},
+      isClosed: false,
+      createdBy: currentUserId,
+      createdAt: Date.now(),
+    };
+    classroomServiceRef.current?.savePoll(newPoll);
     wsRef.current?.send(
       JSON.stringify({
         type: 'teacher_action',
@@ -662,6 +772,9 @@ export default function App() {
   };
 
   const handleVotePoll = (optionId: string) => {
+    if (activePoll) {
+      classroomServiceRef.current?.votePoll(activePoll.id, optionId);
+    }
     wsRef.current?.send(
       JSON.stringify({
         type: 'vote_poll',
@@ -671,6 +784,9 @@ export default function App() {
   };
 
   const handleClosePoll = () => {
+    if (activePoll) {
+      classroomServiceRef.current?.savePoll({ ...activePoll, isClosed: true });
+    }
     wsRef.current?.send(
       JSON.stringify({
         type: 'teacher_action',
@@ -689,6 +805,7 @@ export default function App() {
       screenStream.getTracks().forEach((t) => t.stop());
       setScreenStream(null);
     }
+    classroomServiceRef.current?.leaveRoom();
     wsRef.current?.close();
     setInCall(false);
   };
@@ -698,6 +815,7 @@ export default function App() {
     return () => {
       localStream?.getTracks().forEach((t) => t.stop());
       screenStream?.getTracks().forEach((t) => t.stop());
+      classroomServiceRef.current?.leaveRoom();
       wsRef.current?.close();
     };
   }, []);
